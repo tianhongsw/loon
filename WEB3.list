@@ -16,9 +16,7 @@ DOMAIN-SUFFIX,bntrace.com
 DOMAIN-SUFFIX,okx.com
 DOMAIN-SUFFIX,okex.com
 DOMAIN-SUFFIX,oklink.com
-DOMAIN-SUFFIX,cloudfront.net
-DOMAIN-SUFFIX,cloudflare.net
-
+DOMAIN-SUFFIX,okx.com.cdn.cloudflare.net
 
 # bybit
 DOMAIN-SUFFIX,bybit.com
