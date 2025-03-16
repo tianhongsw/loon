@@ -1,0 +1,4 @@
+[MITM]
+hostname = %APPEND% gspe1-ssl.ls.apple.com
+[URL Rewrite]
+^https?://gspe1-ssl.ls.apple.com/pep/gcc https://p.19940731.xyz/api/apple/location/GB 307
