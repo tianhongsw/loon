@@ -1,3 +1,4 @@
+#!name=UK
 [MITM]
 hostname = %APPEND% gspe1-ssl.ls.apple.com
 [URL Rewrite]
