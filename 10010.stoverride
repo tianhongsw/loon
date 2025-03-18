@@ -19,33 +19,7 @@ http:
       timeout: 120
       # debug: true
 
-    - match: ^https?:\/\/m\.client\.10010\.com\/mobileService\/onLine\.htm
-      name: "联通余量(v4)-抓包"
-      type: response
-      require-body: true
-      timeout: 120
-
-tiles:
-  - name: "联通余量(v4)"
-    interval: 300
-    title: "联通余量"
-    content: ""
-    icon: "arrow.up.arrow.down.circle"
-    backgroundColor: "#663399"
-    timeout: 120
-    # debug: true
-
-cron:
-  script:
-    - name: "联通余量(v4)"
-      cron: "0 */6 * * *" # at every 5th minute
-      timeout: 120
-      # debug: true
-
 script-providers:
   "联通余量(v4)":
     url: "https://github.com/ChinaTelecomOperators/ChinaUnicom/releases/download/Prerelease-Alpha/10010.js"
-    interval: 86400
-  "联通余量(v4)-抓包":
-    url: "https://github.com/ChinaTelecomOperators/ChinaUnicom/releases/download/Prerelease-Alpha/10010_capture.js"
     interval: 86400
