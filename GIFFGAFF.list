@@ -1,5 +1,5 @@
 # Giffgaff
-DOMAIN-SUFFIX,giffgaff.com, England
-DOMAIN-SUFFIX,giffgaff.com, England
-DOMAIN-SUFFIX,giffgaff.com, England
-IP-CIDR,87.194.0.0/16,no-resolve, England
+DOMAIN-SUFFIX,giffgaff.com
+DOMAIN-SUFFIX,giffgaff.com
+DOMAIN-SUFFIX,giffgaff.com
+IP-CIDR,87.194.0.0/16,no-resolve
