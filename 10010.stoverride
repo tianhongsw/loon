@@ -1,0 +1,25 @@
+name: 联通余量(v4)
+desc: 定时查询 与 Tile 面板
+icon: https://github.com/ChinaTelecomOperators/ChinaUnicom/releases/download/Prerelease-Alpha/icon.png
+
+# 查看仓库 📦 https://github.com/ChinaTelecomOperators/ChinaUnicom
+
+http:
+  force-http-engine:
+    - "10010v4.com"
+    - "m.client.10010.com"
+  mitm:
+    - "10010v4.com"
+    - "m.client.10010.com"
+  script:
+    - match: ^https?:\/\/10010v4\.com
+      name: "联通余量(v4)"
+      type: request
+      # require-body: true
+      timeout: 120
+      # debug: true
+
+script-providers:
+  "联通余量(v4)":
+    url: "https://github.com/ChinaTelecomOperators/ChinaUnicom/releases/download/Prerelease-Alpha/10010.js"
+    interval: 86400
