@@ -1,9 +1,6 @@
-# 规则名称: Talkatone
-# 规则统计: 6
-
-DOMAIN-SUFFIX,mobilefuse.com
-DOMAIN-SUFFIX,talkatone.com
+DOMAIN-SUFFIX,tktn.at
 DOMAIN-SUFFIX,tktn.be
-IP-CIDR,205.164.56.0/24,no-resolve
-IP-CIDR,50.117.27.0/24,no-resolve
-IP-CIDR,69.46.75.0/24,no-resolve
+# 语音留言地址，一般需要代理
+DOMAIN-SUFFIX,vm.talkatone.com
+# 贴图服务
+DOMAIN-SUFFIX,tenor.com
