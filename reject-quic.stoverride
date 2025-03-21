@@ -1,0 +1,18 @@
+name: 🌟 屏蔽 HTTP3 / QUIC 🌟
+desc: |-
+  • 部分代理协议（如 Vmess）缺陷，不支持代理 UDP
+  • QUIC 会导致部分 HTTP Engine 高级功能失效
+  • 一些运营商可能对 QUIC 协议进行 QoS，将其作为低优先级流量进行处理
+category: Network
+icon: https://cdn.jsdelivr.net/gh/Koolson/Qure/IconSet/Color/Magic.png
+#>------
+
+rules:
+  - SCRIPT,quic,REJECT
+  - SCRIPT,udp-cn,ProxyToCN
+ 
+script:
+  shortcuts: # 可以在 rule 中引用
+    quic: network == 'udp' and dst_port == 443 # 匹配 QUIC 协议
+    udp-cn: network == 'udp' and geoip(dst_ip if dst_ip != '' else resolve_ip(host)) == 'CN' # 匹配发往 CN 的 UDP
+    instagram-quic: network == 'udp' and dst_port == 443 and match_geosite('instagram') # 匹配 Instagram 的 QUIC
