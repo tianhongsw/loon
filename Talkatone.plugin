@@ -1,7 +1,6 @@
 #!name = Talkatone
 #!desc = Talkatone仅限登录分流，插件内选择代理节点。
 #!author = @LowerTop @Trevely
-#!icon = https://loon.trevely.ip-ddns.com/Talkatone.png
 
 
 [Rule]
