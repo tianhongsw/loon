@@ -1,6 +1,7 @@
 #!name = Talkatone
 #!desc = Talkatone仅限登录分流，插件内选择代理节点。
 #!author = @LowerTop @Trevely
+#!icon = https://raw.githubusercontent.com/luestr/IconResource/refs/heads/main/App_icon/120px/Talkatone.png
 
 
 [Rule]
