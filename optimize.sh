@@ -38,7 +38,7 @@ Description=Sing-box VLESS Reality
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/sing-box run -c /etc/sing-box/conf/VLESA-REALITY-10156.json
+ExecStart=/usr/local/bin/sing-box run -c /etc/sing-box/conf/VLESS-REALITY-10156.json
 Restart=always
 RestartSec=5
 LimitNOFILE=65535
