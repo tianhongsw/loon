@@ -1,9 +1,19 @@
 # NAME: Spotify Audio (Direct)
+# 作用: 仅分流音频数据与媒体切片走直连，节省节点流量
+
+# Akamai 音频 CDN
 DOMAIN,audio4-ak-spotify-com.akamaized.net
 DOMAIN,heads-ak-spotify-com.akamaized.net
 DOMAIN-SUFFIX,audio-ak-spotify-com.akamaized.net
 DOMAIN-SUFFIX,heads4-ak-spotify-com.akamaized.net
+
+# pscdn 音频 CDN
 DOMAIN-SUFFIX,pscdn.co
-DOMAIN-SUFFIX,audio-sp-*.pscdn.co
-DOMAIN-KEYWORD,audio-ak-spotify
-DOMAIN-KEYWORD,heads-ak-spotify
+
+# Spotify 官方自建音频 CDN (精准匹配音频子域名，不影响封面图)
+DOMAIN-SUFFIX,audio-fa.scdn.co
+DOMAIN-SUFFIX,heads-fa.scdn.co
+DOMAIN-SUFFIX,audio-fa.spotifycdn.com
+DOMAIN-SUFFIX,audio4-fa.spotifycdn.com
+DOMAIN-SUFFIX,heads-fa.spotifycdn.com
+DOMAIN-SUFFIX,heads4-fa.spotifycdn.com
