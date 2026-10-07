@@ -1,19 +1,29 @@
 # NAME: Spotify Audio (Direct)
-# 作用: 仅分流音频数据与媒体切片走直连，节省节点流量
+# 作用: 拦截所有大流量音频数据与流媒体分发节点走直连
 
-# Akamai 音频 CDN
+# 1. Akamaized 音频流与握手切片
 DOMAIN,audio4-ak-spotify-com.akamaized.net
 DOMAIN,heads-ak-spotify-com.akamaized.net
 DOMAIN-SUFFIX,audio-ak-spotify-com.akamaized.net
+DOMAIN-SUFFIX,audio4-ak-spotify-com.akamaized.net
+DOMAIN-SUFFIX,heads-ak-spotify-com.akamaized.net
 DOMAIN-SUFFIX,heads4-ak-spotify-com.akamaized.net
 
-# pscdn 音频 CDN
+# 2. pscdn 核心音频流池 (大流量音频主源)
 DOMAIN-SUFFIX,pscdn.co
 
-# Spotify 官方自建音频 CDN (精准匹配音频子域名，不影响封面图)
-DOMAIN-SUFFIX,audio-fa.scdn.co
-DOMAIN-SUFFIX,heads-fa.scdn.co
+# 3. spotifycdn.com 专有音频流子域名 (包含刚才拦截失败的 audio-ak)
+DOMAIN-SUFFIX,audio-ak.spotifycdn.com
+DOMAIN-SUFFIX,audio4-ak.spotifycdn.com
 DOMAIN-SUFFIX,audio-fa.spotifycdn.com
 DOMAIN-SUFFIX,audio4-fa.spotifycdn.com
+DOMAIN-SUFFIX,heads-ak.spotifycdn.com
+DOMAIN-SUFFIX,heads4-ak.spotifycdn.com
 DOMAIN-SUFFIX,heads-fa.spotifycdn.com
 DOMAIN-SUFFIX,heads4-fa.spotifycdn.com
+
+# 4. scdn.co 专有音频流子域名
+DOMAIN-SUFFIX,audio-ak.scdn.co
+DOMAIN-SUFFIX,audio-fa.scdn.co
+DOMAIN-SUFFIX,heads-ak.scdn.co
+DOMAIN-SUFFIX,heads-fa.scdn.co
