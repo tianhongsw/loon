@@ -1,5 +1,9 @@
+# NAME: Spotify Audio (Direct)
 DOMAIN,audio4-ak-spotify-com.akamaized.net
 DOMAIN,heads-ak-spotify-com.akamaized.net
 DOMAIN-SUFFIX,audio-ak-spotify-com.akamaized.net
 DOMAIN-SUFFIX,heads4-ak-spotify-com.akamaized.net
 DOMAIN-SUFFIX,pscdn.co
+DOMAIN-SUFFIX,audio-sp-*.pscdn.co
+DOMAIN-KEYWORD,audio-ak-spotify
+DOMAIN-KEYWORD,heads-ak-spotify
