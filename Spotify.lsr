@@ -1,13 +1,13 @@
 # NAME: Spotify Service (Proxy)
-# 作用: 账号鉴权、API 控制接口、歌单元数据与专辑封面走代理节点
+# 作用: 账号鉴权登录、API 通信、歌单元数据、封面图片走代理节点
 
-# 实验与边缘路由
+# 1. 边缘节点与特性实验
 DOMAIN,cdn-spotify-experiments.conductrics.com
 DOMAIN,spotify.com.edgesuite.net
 DOMAIN,spotify.map.fastly.net
 DOMAIN,spotify.map.fastlylb.net
 
-# 控制与鉴权域名
+# 2. 核心鉴权与控制服务
 DOMAIN-SUFFIX,byspotify.com
 DOMAIN-SUFFIX,scdn.co
 DOMAIN-SUFFIX,spoti.fi
@@ -25,9 +25,9 @@ DOMAIN-SUFFIX,spotifynewsroom.jp
 DOMAIN-SUFFIX,spotilocal.com
 DOMAIN-SUFFIX,tospotify.com
 
-# 静态资源与元数据 (去除了音频专属域名)
+# 3. 静态图片与界面资源 (排除了 audio-*.spotifycdn.com 之后，仅处理普通 CDN 静态资产)
 DOMAIN-SUFFIX,spotifycdn.com
 
-# 核心验证服务器 IP
+# 4. 鉴权服务器 IP 地址
 IP-CIDR,104.154.127.126/32,no-resolve
 IP-CIDR,35.186.224.47/32,no-resolve
