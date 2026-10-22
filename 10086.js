@@ -486,7 +486,11 @@ class CmccService {
                 remain: totVoice.remainNum || '0',
                 sum: totVoice.sumNum || '0',
                 used: totVoice.usedNum || '0',
-            }
+            },
+            rawTotFlow: totFlow,
+            rawGenFlow: genFlow,
+            rawDirFlow: dirFlow,
+            rawTotVoice: totVoice
         };
 
         return result;
@@ -551,6 +555,48 @@ function renderReport(r) {
             $.log(`\n${report}\n`);
             summaries.push(`【${data.phoneMask}】余额: ${data.balance}元 | 剩余流量: ${data.flow.totalRemain} | 剩余通话: ${data.voice.remain}分`);
             successCount++;
+
+            // 优先选择「通用流量」（最核心的可用流量）；若通用流量为空则回退到总流量
+            const activeFlow = (data.rawGenFlow && data.rawGenFlow.remainNum !== undefined && data.rawGenFlow.remainNum !== '') ? data.rawGenFlow : data.rawTotFlow;
+
+            // 构造标准 Scriptable 桌面小组件缓存数据结构
+            const scriptableData = {
+                fee: { curFee: String(data.balance || '0.00') },
+                plan: {
+                    planRemianFlowListRes: {
+                        limitType: '01',
+                        state: '00',
+                        planRemianFlowRes: [
+                            {
+                                flowtype: '0',
+                                flowRemainNum: String(activeFlow?.remainNum || '0'),
+                                flowSumNum: String(activeFlow?.sumNum || '0'),
+                                flowUsdNum: String(activeFlow?.usedNum || '0'),
+                                unit: (activeFlow?.unit === '04' || activeFlow?.unit === 'GB') ? '04' : '03'
+                            }
+                        ]
+                    },
+                    planRemianVoiceListRes: {
+                        planRemianVoiceInfoRes: [
+                            {
+                                voicetype: '0',
+                                voiceRemainNum: String(data.rawTotVoice?.remainNum || '0'),
+                                voiceSumNum: String(data.rawTotVoice?.sumNum || '0'),
+                                voiceUsdNum: String(data.rawTotVoice?.usedNum || '0'),
+                                unit: '分钟'
+                            }
+                        ]
+                    }
+                }
+            };
+
+            // 写入全域 BoxJS 存储供 Scriptable 立即读取
+            $.setdata(JSON.stringify(scriptableData), 'china_mobile_cache');
+            $.setdata(JSON.stringify(scriptableData), 'balanceData');
+            if (client.phone) {
+                $.setdata(JSON.stringify(scriptableData), `china_mobile_cache_${client.phone}`);
+                $.setdata(JSON.stringify(scriptableData), `china_mobile_cache_${client.phone.slice(-4)}`);
+            }
         } catch (e) {
             $.log(`❌ 查询失败: ${e.message}`);
             summaries.push(`【${client.phoneMask}】查询异常: ${e.message}`);
@@ -581,7 +627,21 @@ function renderReport(r) {
     .catch((e) => {
         $.log(`\n❌ [全局异常] ${e.message}\n${e.stack || ''}`);
     })
-    .finally(() => $.done());
+    .finally(() => {
+        // 若当前处于代理重写（如 Quantumult X / Surge / Loon 拦截 api.example.com/10086/query）
+        if (typeof $request !== 'undefined' && $request.url && $request.url.includes('/10086/query')) {
+            const cachedData = $.getdata('china_mobile_cache') || '{}';
+            $.done({
+                response: {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: cachedData
+                }
+            });
+            return;
+        }
+        $.done();
+    });
 
 // ---------------------- 跨平台环境适配器 (针对 BoxJS / Surge / Loon / QX 深度优化) ----------------------
 function Env(name) {
