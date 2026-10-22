@@ -1,0 +1,35 @@
+{
+    "name": "ChinaMobileSrc",
+    "version": "1.0.0",
+    "description": "ChinaMobileSrc",
+    "type": "module",
+    "scripts": {
+        "build": "webpack --config webpack.config.js"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.24.6",
+        "@babel/preset-env": "^7.24.6",
+        "babel-loader": "^9.1.3",
+        "base-64": "^1.0.0",
+        "buffer": "*",
+        "compression-webpack-plugin": "^5.0.1",
+        "crypto-js": "*",
+        "fs": "*",
+        "got": "*",
+        "iconv-lite": "*",
+        "javascript-obfuscator": "*",
+        "path": "^0.12.7",
+        "tough-cookie": "*",
+        "webpack": "^5.91.1",
+        "webpack-cli": "^5.1.4",
+        "webpack-obfuscator": "^3.5.1"
+    },
+    "dependencies": {
+        "@nsnanocat/url": "^1.2.4",
+        "@nsnanocat/util": "^1.7.5",
+        "browserify": "^17.0.1",
+        "node-polyfill-webpack-plugin": "^4.0.0",
+        "terser-webpack-plugin": "^5.3.10",
+        "webpack-obfuscator": "^3.5.1"
+    }
+}
