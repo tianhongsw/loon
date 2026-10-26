@@ -13,11 +13,23 @@
         "MCLD_COOKIES",
         "china_mobile_phonenumber",
         "china_mobile_bark_key",
-        "china_mobile_silent"
+        "china_mobile_silent",
+        "china_mobile_cache"
       ],
       "author": "@Antigravity",
       "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Alpha/10086.png",
+      "icons": [
+        "https://raw.githubusercontent.com/Orz-3/mini/master/Alpha/10086.png",
+        "https://raw.githubusercontent.com/Orz-3/mini/master/Alpha/10086.png"
+      ],
       "repo": "https://github.com/tianhongsw/loon",
+      "descs_html": [
+        "1. 依托移动云盘 SSO 跳板，全自动签发大网网关会话，免抓包、免登录",
+        "2. 在下方【移动云盘根凭据】填入 Basic 开头的 Authorization 凭据",
+        "3. 支持多账号（一行一个或填入 MCLD_COOKIES），多卡自动轮询",
+        "4. 支持云盘根凭据临期（≤7天）官方接口全自动顺延 30 天，永不掉线",
+        "5. 点击下方「点击运行」即可实时查询话费、通用流量与通话余量"
+      ],
       "settings": [
         {
           "id": "china_mobile_cookie",
@@ -53,7 +65,7 @@
       "scripts": [
         {
           "name": "查询话费流量语音",
-          "script": "10086.js"
+          "script": "https://raw.githubusercontent.com/tianhongsw/loon/main/10086.js"
         }
       ]
     }
