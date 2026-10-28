@@ -145,6 +145,95 @@ function pureAes128CbcDecrypt(cipherHex, keyStr, ivStr) {
     return decodeURIComponent(escape(String.fromCharCode.apply(null, pt)));
 }
 
+function xtime(a) { return (a & 0x80) ? ((a << 1) ^ 0x1b) & 0xff : (a << 1); }
+
+function mixColumns(s) {
+    for (let c = 0; c < 4; c++) {
+        const i = c * 4;
+        const a0 = s[i], a1 = s[i+1], a2 = s[i+2], a3 = s[i+3];
+        s[i]   = xtime(a0 ^ a1) ^ a1 ^ a2 ^ a3;
+        s[i+1] = xtime(a1 ^ a2) ^ a2 ^ a3 ^ a0;
+        s[i+2] = xtime(a2 ^ a3) ^ a3 ^ a0 ^ a1;
+        s[i+3] = xtime(a3 ^ a0) ^ a0 ^ a1 ^ a2;
+    }
+}
+
+function encryptBlock(block, roundKeys) {
+    const s = new Uint8Array(block);
+    for (let i = 0; i < 4; i++) {
+        const k = roundKeys[i];
+        s[4 * i]     ^= (k >>> 24) & 0xff;
+        s[4 * i + 1] ^= (k >>> 16) & 0xff;
+        s[4 * i + 2] ^= (k >>> 8)  & 0xff;
+        s[4 * i + 3] ^= k & 0xff;
+    }
+    for (let r = 1; r < 10; r++) {
+        for (let i = 0; i < 16; i++) s[i] = SBOX[s[i]];
+        const t1 = s[1]; s[1] = s[5]; s[5] = s[9]; s[9] = s[13]; s[13] = t1;
+        const t2 = s[2]; const t6 = s[6]; s[2] = s[10]; s[6] = s[14]; s[10] = t2; s[14] = t6;
+        const t3 = s[15]; s[15] = s[11]; s[11] = s[7]; s[7] = s[3]; s[3] = t3;
+        mixColumns(s);
+        for (let i = 0; i < 4; i++) {
+            const k = roundKeys[r * 4 + i];
+            s[4 * i]     ^= (k >>> 24) & 0xff;
+            s[4 * i + 1] ^= (k >>> 16) & 0xff;
+            s[4 * i + 2] ^= (k >>> 8)  & 0xff;
+            s[4 * i + 3] ^= k & 0xff;
+        }
+    }
+    for (let i = 0; i < 16; i++) s[i] = SBOX[s[i]];
+    const t1 = s[1]; s[1] = s[5]; s[5] = s[9]; s[9] = s[13]; s[13] = t1;
+    const t2 = s[2]; const t6 = s[6]; s[2] = s[10]; s[6] = s[14]; s[10] = t2; s[14] = t6;
+    const t3 = s[15]; s[15] = s[11]; s[11] = s[7]; s[7] = s[3]; s[3] = t3;
+    for (let i = 0; i < 4; i++) {
+        const k = roundKeys[40 + i];
+        s[4 * i]     ^= (k >>> 24) & 0xff;
+        s[4 * i + 1] ^= (k >>> 16) & 0xff;
+        s[4 * i + 2] ^= (k >>> 8)  & 0xff;
+        s[4 * i + 3] ^= k & 0xff;
+    }
+    return s;
+}
+
+function pureAes128EcbEncrypt(plainText, keyStr) {
+    let data;
+    if (typeof TextEncoder !== 'undefined') {
+        data = new TextEncoder().encode(plainText);
+    } else {
+        const unescaped = unescape(encodeURIComponent(plainText));
+        data = new Uint8Array(unescaped.length);
+        for (let i = 0; i < unescaped.length; i++) data[i] = unescaped.charCodeAt(i);
+    }
+
+    let key;
+    if (typeof TextEncoder !== 'undefined') {
+        key = new TextEncoder().encode(keyStr);
+    } else {
+        key = new Uint8Array(keyStr.length);
+        for (let i = 0; i < keyStr.length; i++) key[i] = keyStr.charCodeAt(i);
+    }
+
+    const padLen = 16 - (data.length % 16);
+    const padded = new Uint8Array(data.length + padLen);
+    padded.set(data);
+    padded.fill(padLen, data.length);
+
+    const roundKeys = expandKey(key);
+    const out = new Uint8Array(padded.length);
+    for (let i = 0; i < padded.length; i += 16) {
+        const blk = encryptBlock(padded.subarray(i, i + 16), roundKeys);
+        out.set(blk, i);
+    }
+
+    if (typeof Buffer !== 'undefined') {
+        return Buffer.from(out).toString('base64');
+    }
+    let binary = '';
+    for (let i = 0; i < out.length; i++) binary += String.fromCharCode(out[i]);
+    if (typeof btoa !== 'undefined') return btoa(binary);
+    return '';
+}
+
 // ---------------------- 统一解密适配入口 ----------------------
 const AES_KEY = '1234123412ABCDEF';
 const AES_IV  = 'ABCDEF1234123412';
@@ -222,22 +311,161 @@ function formatFlow(valStr, unitCode = '03') {
     return `${mb.toFixed(2)} MB`;
 }
 
-function parsePhoneFromAuth(authStr) {
-    if (!authStr) return '';
+function parseMcloudToken(authStr) {
+    if (!authStr) return null;
     try {
-        const raw = authStr.replace(/^Basic\s+/i, '').trim();
+        let raw = authStr.trim();
+        let phoneSuffix = '';
+        if (raw.includes('#')) {
+            const parts = raw.split('#');
+            if (parts[0].startsWith('Basic ') || parts[0].length > 50) {
+                raw = parts[0].trim();
+                phoneSuffix = parts[1].trim();
+            } else {
+                phoneSuffix = parts[0].trim();
+                raw = parts[1].trim();
+            }
+        }
+        if (!raw.startsWith('Basic ') && !raw.startsWith('basic ')) {
+            raw = `Basic ${raw}`;
+        }
+        const b64 = raw.slice(6).trim();
         let decoded = '';
         if (typeof Buffer !== 'undefined') {
-            decoded = Buffer.from(raw, 'base64').toString('utf8');
+            decoded = Buffer.from(b64, 'base64').toString('utf8');
         } else if (typeof atob !== 'undefined') {
-            decoded = atob(raw);
+            decoded = atob(b64);
         }
-        const parts = decoded.split(':');
-        if (parts.length >= 2 && /^1\d{10}$/.test(parts[1])) {
-            return parts[1];
+        const colonParts = decoded.split(':');
+        const clientType = colonParts[0] || 'pc';
+        const phone = (colonParts.length > 1 && /^1\d{10}$/.test(colonParts[1])) ? colonParts[1] : phoneSuffix;
+        const pipeParts = decoded.split('|');
+        const expireAt = (pipeParts.length > 3 && /^\d+$/.test(pipeParts[3])) ? parseInt(pipeParts[3], 10) : 0;
+        const remDays = expireAt > 0 ? (expireAt - Date.now()) / (1000 * 86400) : null;
+        return { auth: raw, clientType, phone, expireAt, remDays };
+    } catch {
+        return null;
+    }
+}
+
+function parsePhoneFromAuth(authStr) {
+    const info = parseMcloudToken(authStr);
+    return info ? info.phone : '';
+}
+
+// ---------------------- 移动云盘根凭据自动换发 / 续期 ----------------------
+const CLOUD_REFRESH_KEY = 'c7lXOigXahPnTViq';
+const CLOUD_REFRESH_URL = 'https://user-njs.yun.139.com/user/auth/refreshToken';
+
+async function refreshCloudToken(authStr, phone, clientType = 'pc') {
+    if (!authStr || !phone) {
+        return { success: false, message: '缺少凭据或手机号' };
+    }
+    const cleanAuth = authStr.trim().startsWith('Basic ') ? authStr.trim() : `Basic ${authStr.trim()}`;
+    const plain = JSON.stringify({ phoneNumber: phone });
+    let encData = '';
+    try {
+        encData = pureAes128EcbEncrypt(plain, CLOUD_REFRESH_KEY);
+    } catch (e) {
+        return { success: false, message: `AES 加密异常: ${e.message}` };
+    }
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MCloudApp/13.0.0 iPhone AppLanguage/zh-CN',
+        'x-yun-tid': genTraceId(),
+        'Authorization': cleanAuth,
+        'x-yun-api-version': 'v1',
+        'x-yun-module-type': '100',
+        'x-yun-op-type': '1',
+        'x-yun-app-channel': '10214200',
+        'x-yun-client-info': '||8||||||||||||',
+        'hcy-cool-flag': '1'
+    };
+
+    const body = JSON.stringify({ data: encData });
+
+    try {
+        const res = await $.http.post({ url: CLOUD_REFRESH_URL, headers, body });
+        if (res.statusCode !== 200) {
+            return { success: false, message: `HTTP ${res.statusCode}: ${res.body}` };
         }
-    } catch {}
-    return '';
+        const json = JSON.parse(res.body);
+        if (json.code === '0000' && json.data && json.data.token) {
+            const rawToken = json.data.token;
+            let b64 = '';
+            const plainCombined = `${clientType}:${phone}:${rawToken}`;
+            if (typeof Buffer !== 'undefined') {
+                b64 = Buffer.from(plainCombined, 'utf8').toString('base64');
+            } else if (typeof btoa !== 'undefined') {
+                b64 = btoa(unescape(encodeURIComponent(plainCombined)));
+            }
+            const newAuth = `Basic ${b64}`;
+            const newInfo = parseMcloudToken(newAuth);
+            return {
+                success: true,
+                newAuth,
+                expireAt: newInfo ? newInfo.expireAt : 0
+            };
+        }
+        return { success: false, message: json.message || json.code || '接口未返回有效 Token' };
+    } catch (e) {
+        return { success: false, message: e.message };
+    }
+}
+
+function updateAccountTokenInStorage(targetPhone, newAuth) {
+    if (!targetPhone || !newAuth) return;
+
+    // 1. BoxJS china_mobile_cookie
+    const curCookie = $.getdata('china_mobile_cookie') || '';
+    if (curCookie) {
+        const lines = curCookie.split(/[\n&]+/).map(s => s.trim()).filter(Boolean);
+        const newLines = lines.map(line => {
+            const info = parseMcloudToken(line);
+            if (info && (info.phone === targetPhone || line.includes(targetPhone))) {
+                return `${newAuth}#${targetPhone}`;
+            }
+            return line;
+        });
+        $.setdata(newLines.join('\n'), 'china_mobile_cookie');
+    }
+
+    // 2. BoxJS MCLD_COOKIES
+    const curMcld = $.getdata('MCLD_COOKIES') || '';
+    if (curMcld) {
+        const lines = curMcld.split(/[\n&]+/).map(s => s.trim()).filter(Boolean);
+        const newLines = lines.map(line => {
+            const info = parseMcloudToken(line);
+            if (info && (info.phone === targetPhone || line.includes(targetPhone))) {
+                return `${newAuth}#${targetPhone}`;
+            }
+            return line;
+        });
+        $.setdata(newLines.join('\n'), 'MCLD_COOKIES');
+    }
+
+    // 3. Node.js 本地文件同步更新
+    if ($.isNode()) {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const dir = process.cwd();
+            const files = fs.readdirSync(dir).filter(f => /^config_.*\.json$/.test(f) || f === 'config.json');
+            for (const f of files) {
+                const fullP = path.join(dir, f);
+                try {
+                    const data = JSON.parse(fs.readFileSync(fullP, 'utf8'));
+                    if (data.phone === targetPhone || parsePhoneFromAuth(data.cloud_auth || data.Authorization) === targetPhone) {
+                        data.cloud_auth = newAuth;
+                        if (data.Authorization) data.Authorization = newAuth;
+                        fs.writeFileSync(fullP, JSON.stringify(data, null, 2), 'utf8');
+                        $.log(`💾 已同步写回本地配置文件: ${f}`);
+                    }
+                } catch (e) {}
+            }
+        } catch (e) {}
+    }
 }
 
 // ---------------------- 账号加载 (全方位兼容 BoxJS 键名体系) ----------------------
@@ -280,8 +508,13 @@ function getAccountList() {
             let phone = '';
             if (line.includes('#')) {
                 const parts = line.split('#');
-                phone = parts[0].trim();
-                auth = parts[1].trim();
+                if (parts[0].startsWith('Basic ') || parts[0].length > 50) {
+                    auth = parts[0].trim();
+                    phone = parts[1].trim();
+                } else {
+                    phone = parts[0].trim();
+                    auth = parts[1].trim();
+                }
             } else {
                 phone = boxPhone || parsePhoneFromAuth(auth);
             }
@@ -330,7 +563,7 @@ class CmccService {
         this.location = '';
     }
 
-    // 步骤 1: 云盘中枢换取 017018 netToken（直连与全球通 001191 跳板自愈通道）
+    // 步骤 1: 云盘中枢换取 017018 netToken（双通道自愈：直连 + 全球通 001191 跳板）
     async fetchNetToken() {
         const url = 'https://orches.yun.139.com/orchestration/auth-rebuild/token/v1.0/querySpecToken';
         const headers = {
@@ -340,59 +573,62 @@ class CmccService {
             'User-Agent': DEFAULT_UA,
         };
 
-        // 1. 优先尝试直连 017018
-        try {
-            const body = JSON.stringify({ account: this.phone, toSourceId: '017018' });
-            const res = await $.http.post({ url, headers, body });
-            if (res.statusCode === 200) {
-                const json = JSON.parse(res.body);
-                if (json.success && json.data && json.data.token) {
-                    return json.data.token;
-                }
-            }
-        } catch (e) {}
+        const isNonCmcc = this.phone && (this.phone.startsWith('155') || this.phone.startsWith('185') || this.phone.startsWith('186') || this.phone.endsWith('4411'));
 
-        // 2. 备选自愈通道: 全球通 001191 换票跳板
-        try {
-            const body = JSON.stringify({ account: this.phone, toSourceId: '001191' });
-            const res = await $.http.post({ url, headers, body });
-            if (res.statusCode === 200) {
-                const json = JSON.parse(res.body);
-                const ssoToken = json.data && json.data.token;
-                if (ssoToken) {
-                    const loginUrl = `https://qqt.cmicrwx.cn/2016tyjf/xhmqqthy/new/ssoTokenLogin.action?backUrl=${encodeURIComponent('https://qqt.cmicrwx.cn/2016tyjf/xhmqqthy/res/wap/xdractivity.html?sspId=66420&enableShare=1')}&token=${ssoToken}&targetSourceId=001191`;
-                    const loginRes = await $.http.get({
-                        url: loginUrl,
-                        headers: { 'User-Agent': DEFAULT_UA },
-                        followRedirect: false
-                    });
-                    const rawSetCookie = loginRes.headers['set-cookie'] || loginRes.headers['Set-Cookie'] || '';
-                    const cookieStr = Array.isArray(rawSetCookie) ? rawSetCookie.map(c => c.split(';')[0]).join('; ') : String(rawSetCookie).split(';')[0];
-                    
-                    const qqtRes = await $.http.post({
-                        url: 'https://qqt.cmicrwx.cn/2016tyjf/xhmqqthy/getCmpSSOTokenNew.action',
-                        headers: {
-                            'User-Agent': DEFAULT_UA,
-                            'Referer': 'https://qqt.cmicrwx.cn/2016tyjf/xhmqqthy/res/wap/xdractivity.html?sspId=66420&enableShare=1',
-                            'Origin': 'https://qqt.cmicrwx.cn',
-                            'Content-Type': 'application/json',
-                            'Cookie': cookieStr,
-                        },
-                        body: JSON.stringify({ targetid: '017018' })
-                    });
-                    if (qqtRes.statusCode === 200) {
-                        const qqtJson = JSON.parse(qqtRes.body);
-                        if (qqtJson.data) {
-                            return qqtJson.data;
-                        }
+        if (!isNonCmcc) {
+            try {
+                const body = JSON.stringify({ account: this.phone, toSourceId: '017018' });
+                const res = await $.http.post({ url, headers, body });
+                if (res.statusCode === 200) {
+                    const json = JSON.parse(res.body);
+                    if (json.success && json.data && json.data.token) {
+                        return json.data.token;
                     }
                 }
-            }
-        } catch (e) {
-            throw new Error(`云盘换取大网互通票据失败: ${e.message}`);
+            } catch (e) {}
         }
 
-        throw new Error('云盘换取大网互通票据失败: 官方统一认证未下发有效票据');
+        // 备用通道: 全球通 001191 换票跳板（支持异网及受限号段）
+        $.log('👉 启动全球通 001191 换票跳板...');
+        const bodyQqt = JSON.stringify({ account: this.phone, toSourceId: '001191' });
+        const resQqt = await $.http.post({ url, headers, body: bodyQqt });
+        if (resQqt.statusCode !== 200) {
+            throw new Error(`全球通换票失败 (HTTP ${resQqt.statusCode}): ${resQqt.body}`);
+        }
+        const jsonQqt = JSON.parse(resQqt.body);
+        const ssoToken = jsonQqt?.data?.token || jsonQqt?.token;
+        if (!ssoToken) {
+            throw new Error(`未能获取全球通 SSO Token: ${resQqt.body}`);
+        }
+
+        const loginUrl = `https://qqt.cmicrwx.cn/2016tyjf/xhmqqthy/new/ssoTokenLogin.action?backUrl=${encodeURIComponent('https://qqt.cmicrwx.cn/2016tyjf/xhmqqthy/res/wap/xdractivity.html?sspId=66420&enableShare=1')}&token=${ssoToken}&targetSourceId=001191`;
+        const resLogin = await $.http.get({ url: loginUrl, headers: { 'User-Agent': DEFAULT_UA }, followRedirect: false });
+        let qqtCookie = '';
+        const rawCookies = resLogin.headers['set-cookie'] || resLogin.headers['Set-Cookie'] || '';
+        if (Array.isArray(rawCookies)) {
+            qqtCookie = rawCookies.map(c => String(c).split(';')[0]).join('; ');
+        } else if (rawCookies) {
+            qqtCookie = String(rawCookies).split(';')[0];
+        }
+
+        const resCmp = await $.http.post({
+            url: 'https://qqt.cmicrwx.cn/2016tyjf/xhmqqthy/getCmpSSOTokenNew.action',
+            headers: {
+                'User-Agent': DEFAULT_UA,
+                'Referer': 'https://qqt.cmicrwx.cn/2016tyjf/xhmqqthy/res/wap/xdractivity.html?sspId=66420&enableShare=1',
+                'Origin': 'https://qqt.cmicrwx.cn',
+                'Content-Type': 'application/json',
+                'Cookie': qqtCookie
+            },
+            body: JSON.stringify({ targetid: '017018' })
+        });
+        const cmpJson = JSON.parse(resCmp.body);
+        if (cmpJson && cmpJson.data) {
+            $.log('✅ 全球通跳板置换 netToken 成功！');
+            return cmpJson.data;
+        }
+
+        throw new Error(`换取大网互通票据失败: ${resCmp.body}`);
     }
 
     // 步骤 2: 访问 netUni 置换网厅 d.sid
@@ -457,9 +693,32 @@ class CmccService {
         return this.csrf;
     }
 
+    // 步骤 0: 检查云盘根凭据有效期并在临期时全自动续期
+    async checkAndRefreshToken() {
+        const info = parseMcloudToken(this.auth);
+        if (!info || !info.phone) return;
+        if (info.expireAt > 0 && info.remDays !== null) {
+            if (info.remDays <= 7) {
+                $.log(`🔄【云盘凭据临期】账号 ${this.phoneMask} 凭据剩余 ${info.remDays.toFixed(1)} 天 (≤7天)，正在全自动调用官方 refreshToken 续期 30 天...`);
+                const refreshed = await refreshCloudToken(this.auth, info.phone, info.clientType);
+                if (refreshed && refreshed.success && refreshed.newAuth) {
+                    this.auth = refreshed.newAuth;
+                    const newRem = refreshed.expireAt > 0 ? (refreshed.expireAt - Date.now()) / (1000 * 86400) : 30;
+                    $.log(`🌟【云盘凭据续期成功】账号 ${this.phoneMask} 已换发新凭据 (有效期顺延至 ${newRem.toFixed(1)} 天后)，并自动同步写回存储！`);
+                    updateAccountTokenInStorage(info.phone, refreshed.newAuth);
+                } else {
+                    $.log(`⚠️【云盘凭据续期失败】${refreshed?.message || '未知异常'}`);
+                }
+            } else {
+                $.log(`ℹ️【云盘凭据检查】账号 ${this.phoneMask} 根凭据有效，剩余 ${info.remDays.toFixed(1)} 天`);
+            }
+        }
+    }
+
     // 步骤 4 & 5: 综合余量查询
     async queryAll() {
         $.log(`\n================ 正在查询: ${this.phoneMask} ================`);
+        await this.checkAndRefreshToken();
         $.log('👉 [1/3] 正在置换大网专线 017018 互通票据...');
         const netToken = await this.fetchNetToken();
         
@@ -529,7 +788,11 @@ class CmccService {
                 remain: totVoice.remainNum || '0',
                 sum: totVoice.sumNum || '0',
                 used: totVoice.usedNum || '0',
-            }
+            },
+            rawTotFlow: totFlow,
+            rawGenFlow: genFlow,
+            rawDirFlow: dirFlow,
+            rawTotVoice: totVoice
         };
 
         return result;
@@ -594,6 +857,48 @@ function renderReport(r) {
             $.log(`\n${report}\n`);
             summaries.push(`【${data.phoneMask}】余额: ${data.balance}元 | 剩余流量: ${data.flow.totalRemain} | 剩余通话: ${data.voice.remain}分`);
             successCount++;
+
+            // 优先选择「通用流量」（最核心的可用流量）；若通用流量为空则回退到总流量
+            const activeFlow = (data.rawGenFlow && data.rawGenFlow.remainNum !== undefined && data.rawGenFlow.remainNum !== '') ? data.rawGenFlow : data.rawTotFlow;
+
+            // 构造标准 Scriptable 桌面小组件缓存数据结构
+            const scriptableData = {
+                fee: { curFee: String(data.balance || '0.00') },
+                plan: {
+                    planRemianFlowListRes: {
+                        limitType: '01',
+                        state: '00',
+                        planRemianFlowRes: [
+                            {
+                                flowtype: '0',
+                                flowRemainNum: String(activeFlow?.remainNum || '0'),
+                                flowSumNum: String(activeFlow?.sumNum || '0'),
+                                flowUsdNum: String(activeFlow?.usedNum || '0'),
+                                unit: (activeFlow?.unit === '04' || activeFlow?.unit === 'GB') ? '04' : '03'
+                            }
+                        ]
+                    },
+                    planRemianVoiceListRes: {
+                        planRemianVoiceInfoRes: [
+                            {
+                                voicetype: '0',
+                                voiceRemainNum: String(data.rawTotVoice?.remainNum || '0'),
+                                voiceSumNum: String(data.rawTotVoice?.sumNum || '0'),
+                                voiceUsdNum: String(data.rawTotVoice?.usedNum || '0'),
+                                unit: '分钟'
+                            }
+                        ]
+                    }
+                }
+            };
+
+            // 写入全域 BoxJS 存储供 Scriptable 立即读取
+            $.setdata(JSON.stringify(scriptableData), 'china_mobile_cache');
+            $.setdata(JSON.stringify(scriptableData), 'balanceData');
+            if (client.phone) {
+                $.setdata(JSON.stringify(scriptableData), `china_mobile_cache_${client.phone}`);
+                $.setdata(JSON.stringify(scriptableData), `china_mobile_cache_${client.phone.slice(-4)}`);
+            }
         } catch (e) {
             $.log(`❌ 查询失败: ${e.message}`);
             summaries.push(`【${client.phoneMask}】查询异常: ${e.message}`);
@@ -624,7 +929,21 @@ function renderReport(r) {
     .catch((e) => {
         $.log(`\n❌ [全局异常] ${e.message}\n${e.stack || ''}`);
     })
-    .finally(() => $.done());
+    .finally(() => {
+        // 若当前处于代理重写（如 Quantumult X / Surge / Loon 拦截 api.example.com/10086/query）
+        if (typeof $request !== 'undefined' && $request.url && $request.url.includes('/10086/query')) {
+            const cachedData = $.getdata('china_mobile_cache') || '{}';
+            $.done({
+                response: {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: cachedData
+                }
+            });
+            return;
+        }
+        $.done();
+    });
 
 // ---------------------- 跨平台环境适配器 (针对 BoxJS / Surge / Loon / QX 深度优化) ----------------------
 function Env(name) {
