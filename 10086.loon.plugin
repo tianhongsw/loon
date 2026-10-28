@@ -14,10 +14,12 @@ silent = switch, false, true, tag = 静默模式, desc = 此开关控制插件�
 service = switch, false, true, tag = Scriptable服务模式, desc = 此开关控制插件是否开启Scriptable服务模式, 不用组件者请无视
 
 [Script]
-http-request ^https?:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/[LD]N\/(uam(onekey|randcode)login|realPersonAuthentication)\/autoLogin script-path = https://raw.githubusercontent.com/tianhongsw/loon/refs/heads/main/10086.js, requires-body = true, tag = 移动获取参数, enable = {enable_capture}
+http-request ^https?:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/[LD]N\/(uam(onekey|randcode)login|realPersonAuthentication)\/autoLogin script-path = https://raw.githubusercontent.com/tianhongsw/loon/main/10086.js, requires-body = true, tag = 移动获取参数, enable = {enable_capture}
+http-request ^https?:\/\/api\.example\.com\/10086\/query script-path = https://raw.githubusercontent.com/tianhongsw/loon/main/10086.js, tag = 移动小组件服务, enable = {service}
 
-cron {cron} script-path = https://raw.githubusercontent.com/tianhongsw/loon/refs/heads/main/10086.js, tag = 移动余量查询, timeout = 60, argument=[{phonenumber},{bark_key},{debug},{silent},{service}]
+cron {cron} script-path = https://raw.githubusercontent.com/tianhongsw/loon/main/10086.js, tag = 移动余量查询, timeout = 60, argument=[{phonenumber},{bark_key},{debug},{silent},{service}]
 
 [MitM]
-hostname = client.app.coc.10086.cn
+hostname = client.app.coc.10086.cn, api.example.com
+
 
