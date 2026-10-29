@@ -824,6 +824,29 @@ function renderReport(r) {
 }
 
 // ---------------------- 主入口 ----------------------
+// 优先拦截并响应 Scriptable 小组件 Mock 服务请求 (api.example.com/10086/query)
+// 0毫秒极速返回 BoxJS 本地已更新的最新缓存，严禁阻塞小组件或触发完整耗时查询
+if (typeof $request !== 'undefined' && $request.url && $request.url.includes('/10086/query')) {
+    let targetPhone = '';
+    const m = $request.url.match(/[?&]phone=([^&]+)/);
+    if (m) targetPhone = m[1];
+
+    let cachedData = '';
+    if (targetPhone) {
+        cachedData = $.getdata(`china_mobile_cache_${targetPhone}`) || $.getdata(`china_mobile_cache_${targetPhone.slice(-4)}`);
+    }
+    if (!cachedData) {
+        cachedData = $.getdata('china_mobile_cache') || $.getdata('balanceData') || '{}';
+    }
+    $.log(`[小组件服务] 收到 api.example.com 查询请求 (指定号码: ${targetPhone || '默认'})，极速返回缓存数据`);
+    $.done({
+        response: {
+            status: 200,
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: cachedData
+        }
+    });
+} else {
 !(async () => {
     $.log('🔔 [中国移动] 脚本启动，准备执行官方网厅综合余量查询...');
 
@@ -930,20 +953,9 @@ function renderReport(r) {
         $.log(`\n❌ [全局异常] ${e.message}\n${e.stack || ''}`);
     })
     .finally(() => {
-        // 若当前处于代理重写（如 Quantumult X / Surge / Loon 拦截 api.example.com/10086/query）
-        if (typeof $request !== 'undefined' && $request.url && $request.url.includes('/10086/query')) {
-            const cachedData = $.getdata('china_mobile_cache') || '{}';
-            $.done({
-                response: {
-                    status: 200,
-                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                    body: cachedData
-                }
-            });
-            return;
-        }
         $.done();
     });
+}
 
 // ---------------------- 跨平台环境适配器 (针对 BoxJS / Surge / Loon / QX 深度优化) ----------------------
 function Env(name) {
